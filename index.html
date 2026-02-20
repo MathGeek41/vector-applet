@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>חיבור וקטורים בתלת-ממד</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Heebo', sans-serif;
+    background: #f5f7fa;
+    color: #1a1d27;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ===== SIDE PANEL ===== */
+  #panel {
+    width: 320px;
+    min-width: 320px;
+    background: #ffffff;
+    border-left: 1px solid #e2e6ef;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px;
+    gap: 16px;
+    overflow-y: auto;
+    z-index: 10;
+    box-shadow: -2px 0 12px rgba(0,0,0,0.06);
+  }
+
+  #panel h1 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a1d27;
+    border-bottom: 2px solid #e2e6ef;
+    padding-bottom: 14px;
+    text-align: center;
+  }
+
+  .vector-card {
+    background: #f8f9fc;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 1px solid #e2e6ef;
+  }
+
+  .vector-card h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1a1d27;
+  }
+
+  /* underline style for vector names instead of combining arrow */
+  .vname {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-style: italic;
+  }
+
+  .dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .dot-u { background: #2563eb; }
+  .dot-v { background: #16a34a; }
+  .dot-w { background: #dc2626; }
+
+  .inputs-row { display: flex; gap: 8px; }
+
+  .input-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .input-group label {
+    font-size: 11px;
+    color: #6b7280;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .input-group input {
+    width: 100%;
+    background: #ffffff;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px 4px;
+    color: #1a1d27;
+    font-size: 15px;
+    font-family: 'Heebo', monospace;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    direction: ltr;   /* keeps minus sign on the LEFT */
+  }
+
+  .input-group input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px #2563eb18;
+  }
+
+  /* ===== RESULT CARD ===== */
+  .result-card {
+    background: #fff7f7;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 1px solid #fecaca;
+  }
+
+  .result-card h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1a1d27;
+  }
+
+  .formula {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 14px 10px;
+    font-size: 17px;
+    line-height: 2.2;
+    color: #374151;
+    direction: ltr;
+    unicode-bidi: isolate;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    border: 1px solid #fecaca;
+  }
+
+  .formula .vec-u { color: #2563eb; font-weight: 700; }
+  .formula .vec-v { color: #16a34a; font-weight: 700; }
+  .formula .vec-w { color: #dc2626; font-weight: 800; font-size: 22px; }
+  .formula .step  { display: block; font-size: 16px; color: #9ca3af; direction: ltr; unicode-bidi: isolate; }
+  .formula .result-line { display: block; font-size: 22px; margin-top: 2px; font-weight: 700; direction: ltr; unicode-bidi: isolate; }
+
+  /* ===== LEGEND ===== */
+  .legend {
+    background: #f8f9fc;
+    border-radius: 12px;
+    padding: 12px 16px;
+    border: 1px solid #e2e6ef;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .legend h3 { font-size: 12px; color: #9ca3af; font-weight: 600; margin-bottom: 2px; }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: #4b5563;
+  }
+
+  .legend-line { width: 28px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ===== BUTTONS ===== */
+  .btn-row { display: flex; gap: 10px; }
+
+  button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Heebo', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+
+  .btn-reset { background: #f1f5f9; color: #4b5563; border: 1px solid #e2e6ef; }
+  .btn-reset:hover { background: #e2e6ef; color: #1a1d27; }
+
+  .btn-cam { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+  .btn-cam:hover { background: #dbeafe; }
+
+  /* ===== CANVAS ===== */
+  #canvas-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #f5f7fa;
+  }
+
+  #canvas-container canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* 3D Labels */
+  .vec-label {
+    position: absolute;
+    font-family: 'Heebo', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    font-style: italic;
+    pointer-events: none;
+    text-shadow:
+      0 0 6px rgba(255,255,255,1),
+      0 0 12px rgba(255,255,255,0.9),
+      1px 1px 3px rgba(255,255,255,0.8);
+    transform: translate(-50%, -50%);
+  }
+
+  .vec-label span {
+    border-bottom: 2.5px solid currentColor;
+    padding-bottom: 1px;
+  }
+
+  .axis-label {
+    position: absolute;
+    font-family: 'Heebo', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    pointer-events: none;
+    text-shadow: 0 0 6px #fff, 0 0 10px #fff;
+    transform: translate(-50%, -50%);
+  }
+
+  /* endpoint coordinate labels */
+  .pt-label {
+    position: absolute;
+    font-family: 'Courier New', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #111111;
+    pointer-events: none;
+    background: rgba(255,255,255,0.82);
+    border-radius: 5px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    direction: ltr;
+    unicode-bidi: embed;
+    text-align: left;
+    text-shadow: none;
+    transform: translate(-50%, -130%);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+    border: 1px solid #e2e6ef;
+  }
+
+  .v-algebraic-3d {
+    position: absolute;
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #16a34a;
+    pointer-events: none;
+    background: rgba(255,255,255,0.85);
+    border: 1.5px solid #16a34a44;
+    border-radius: 6px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    direction: ltr;
+    unicode-bidi: embed;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+    text-shadow: none;
+  }
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid #e2e6ef;
+    border-radius: 8px;
+    padding: 7px 16px;
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
+    direction: rtl;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDE PANEL -->
+<div id="panel">
+  <h1>חיבור וקטורים בתלת-ממד</h1>
+
+  <!-- Vector U -->
+  <div class="vector-card vu">
+    <h2><span class="dot dot-u"></span>וקטור <span class="vname" style="color:#2563eb">u</span></h2>
+    <div class="inputs-row" style="direction:ltr">
+      <div class="input-group"><label>x</label><input type="number" id="ux" value="2" step="0.5"></div>
+      <div class="input-group"><label>y</label><input type="number" id="uy" value="1" step="0.5"></div>
+      <div class="input-group"><label>z</label><input type="number" id="uz" value="1" step="0.5"></div>
+    </div>
+  </div>
+
+  <!-- Vector V -->
+  <div class="vector-card vv">
+    <h2><span class="dot dot-v"></span>וקטור <span class="vname" style="color:#16a34a">v</span></h2>
+    <div class="inputs-row" style="direction:ltr">
+      <div class="input-group"><label>x</label><input type="number" id="vx" value="1" step="0.5"></div>
+      <div class="input-group"><label>y</label><input type="number" id="vy" value="2" step="0.5"></div>
+      <div class="input-group"><label>z</label><input type="number" id="vz" value="-1" step="0.5"></div>
+    </div>
+    <div id="v-algebraic" style="margin-top:10px; text-align:center; font-family:'Courier New',monospace; font-size:14px; font-weight:700; color:#16a34a; direction:ltr;"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card">
+    <h2><span class="dot dot-w"></span>וקטור הסכום <span class="vname" style="color:#dc2626">w</span></h2>
+    <div class="formula">
+      <span class="step" dir="ltr"><span class="vec-u">u</span> + <span class="vec-v">v</span> =</span>
+      <span class="step" dir="ltr">(<span class="vec-u" id="f-ux">2</span>&thinsp;+&thinsp;<span class="vec-v" id="f-vx">1</span> ,&nbsp;<span class="vec-u" id="f-uy">1</span>&thinsp;+&thinsp;<span class="vec-v" id="f-vy">2</span> ,&nbsp;<span class="vec-u" id="f-uz">1</span>&thinsp;+&thinsp;<span class="vec-v" id="f-vz">-1</span>)</span>
+      <span class="result-line" dir="ltr">= (<span class="vec-w" id="f-wx">3</span> ,&nbsp;<span class="vec-w" id="f-wy">3</span> ,&nbsp;<span class="vec-w" id="f-wz">0</span>)</span>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <h3>מקרא</h3>
+    <div class="legend-item">
+      <div class="legend-line" style="background:#2563eb"></div>
+      <span>וקטור <span class="vname">u</span> (מהראשית)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background:#16a34a"></div>
+      <span>וקטור <span class="vname">v</span> (מקצה <span class="vname">u</span>)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line" style="background:#dc2626"></div>
+      <span>וקטור הסכום <span class="vname">w</span></span>
+    </div>
+    <div class="legend-item">
+      <div style="width:10px;height:10px;border-radius:50%;background:#111;flex-shrink:0;margin-right:9px"></div>
+      <span>נקודת קצה של הוקטור</span>
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-row">
+    <button class="btn-reset" onclick="resetValues()">איפוס ערכים</button>
+    <button class="btn-cam" onclick="resetCamera()">איפוס מצלמה</button>
+  </div>
+</div>
+
+<!-- 3D Canvas -->
+<div id="canvas-container">
+  <canvas id="three-canvas"></canvas>
+  <div class="vec-label" id="label-u" style="color:#2563eb"><span>u</span></div>
+  <div class="vec-label" id="label-v" style="color:#16a34a"><span>v</span></div>
+  <div class="v-algebraic-3d" id="v-alg-3d"></div>
+  <div class="vec-label" id="label-w" style="color:#dc2626; font-size:21px"><span>w</span></div>
+  <!-- axis labels -->
+  <div class="axis-label" id="axis-x" style="color:#e53e3e">x</div>
+  <div class="axis-label" id="axis-y" style="color:#38a169">y</div>
+  <div class="axis-label" id="axis-z" style="color:#3182ce">z</div>
+  <!-- endpoint labels -->
+  <div class="pt-label" id="pt-u"></div>
+  <div class="pt-label" id="pt-v"></div>
+  <div class="pt-label" id="pt-w"></div>
+  <div id="hint">גרור לסיבוב · גלגלת לזום · לחיצה ימנית להזזה</div>
+</div>
+
+<script>
+// ==================== SETUP ====================
+const canvas = document.getElementById('three-canvas');
+const container = document.getElementById('canvas-container');
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0xf5f7fa, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 1000);
+
+// Camera sits along user-X axis (= Three.js +Z), offset slightly in Y(right) and Z(up)
+// So viewer sees: X coming toward them, Y going right, Z going up
+const _cx = 3, _cy = 4, _cz = 9;   // Three.js coords
+camera.position.set(_cx, _cy, _cz);
+camera.lookAt(0, 0, 0);
+camera.up.set(0, 1, 0);
+
+// ==================== MANUAL ORBIT ====================
+let isDown = false, isRight = false, lastX, lastY;
+let sph = {
+  theta: Math.atan2(_cx, _cz),
+  phi:   Math.atan2(Math.sqrt(_cx**2 + _cz**2), _cy),
+  r:     Math.sqrt(_cx**2 + _cy**2 + _cz**2)
+};
+let tgt = new THREE.Vector3();
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => { isDown = true; isRight = e.button === 2; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener('pointerup', () => isDown = false);
+window.addEventListener('pointermove', e => {
+  if (!isDown) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  if (!isRight) {
+    sph.theta -= dx * 0.01;
+    sph.phi = Math.max(0.05, Math.min(Math.PI - 0.05, sph.phi - dy * 0.01));
+  } else {
+    const r = new THREE.Vector3();
+    camera.getWorldDirection(r);
+    r.cross(camera.up).normalize().multiplyScalar(-dx * 0.02);
+    const u2 = camera.up.clone().multiplyScalar(dy * 0.02);
+    tgt.add(r).add(u2);
+  }
+  updateCam();
+});
+canvas.addEventListener('wheel', e => {
+  sph.r = Math.max(1, Math.min(50, sph.r + e.deltaY * 0.02));
+  updateCam(); e.preventDefault();
+}, { passive: false });
+
+function updateCam() {
+  camera.position.set(
+    tgt.x + sph.r * Math.sin(sph.phi) * Math.sin(sph.theta),
+    tgt.y + sph.r * Math.cos(sph.phi),
+    tgt.z + sph.r * Math.sin(sph.phi) * Math.cos(sph.theta)
+  );
+  camera.lookAt(tgt);
+}
+
+function resetCamera() {
+  sph = {
+    theta: Math.atan2(_cx, _cz),
+    phi:   Math.atan2(Math.sqrt(_cx**2 + _cz**2), _cy),
+    r:     Math.sqrt(_cx**2 + _cy**2 + _cz**2)
+  };
+  tgt.set(0,0,0); updateCam();
+}
+
+// ==================== COORDINATE REMAP ====================
+// User convention: X=forward (toward viewer), Y=right, Z=up
+// Three.js convention: X=right, Y=up, Z=toward viewer
+// Mapping: userX → Three.js +Z  (forward in user = toward viewer in Three.js)
+//          userY → Three.js +X  (right in user   = right in Three.js)
+//          userZ → Three.js +Y  (up in user       = up in Three.js)
+function toThree(ux, uy, uz) {
+  return new THREE.Vector3(uy, uz, ux);
+}
+function userVecToThree(v) { return toThree(v.x, v.y, v.z); }
+const C = {
+  u: 0x2563eb, v: 0x16a34a, w: 0xdc2626,
+  ax: 0xe53e3e, ay: 0x38a169, az: 0x3182ce,
+  grid: 0xd1d5db, proj: 0xb0b8cc
+};
+
+// ==================== GEOMETRY HELPERS ====================
+function makeArrow(from, to, color, r = 0.03) {
+  const g = new THREE.Group();
+  const dir = to.clone().sub(from);
+  const len = dir.length();
+  if (len < 0.001) return g;
+  const headLen = Math.min(len * 0.22, 0.38);
+  const bodyLen = len - headLen;
+  const mat = new THREE.MeshPhongMaterial({ color, shininess: 50 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, bodyLen, 10), mat);
+  body.position.y = bodyLen / 2;
+  const head = new THREE.Mesh(new THREE.ConeGeometry(r * 2.7, headLen, 12), mat);
+  head.position.y = bodyLen + headLen / 2;
+  g.add(body, head);
+  g.setRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir.normalize()));
+  g.position.copy(from);
+  return g;
+}
+
+function dashedLine(from, to, color, op = 0.65) {
+  const mat = new THREE.LineDashedMaterial({ color, dashSize: 0.15, gapSize: 0.1, opacity: op, transparent: true });
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([from.clone(), to.clone()]), mat);
+  line.computeLineDistances();
+  return line;
+}
+
+function solidLine(from, to, color, op = 1) {
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([from.clone(), to.clone()]),
+    new THREE.LineBasicMaterial({ color, opacity: op, transparent: op < 1 })
+  );
+}
+
+// ==================== STATIC SCENE ====================
+scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+const dl = new THREE.DirectionalLight(0xffffff, 0.7);
+dl.position.set(5,10,5); scene.add(dl);
+
+const AXIS_SIZE = 6;
+
+function buildAxes(s) {
+  const g = new THREE.Group();
+  // X forward (user) → Three.js -Z direction → toThree(1,0,0) = (0,0,-1)
+  // Y right   (user) → Three.js +X direction → toThree(0,1,0) = (1,0,0)
+  // Z up      (user) → Three.js +Y direction → toThree(0,0,1) = (0,1,0)
+  const axes = [
+    { dir: toThree(1,0,0), neg: toThree(-1,0,0), color: C.ax },  // X red
+    { dir: toThree(0,1,0), neg: toThree(0,-1,0), color: C.ay },  // Y green
+    { dir: toThree(0,0,1), neg: toThree(0,0,-1), color: C.az },  // Z blue
+  ];
+  axes.forEach(({dir, neg, color}) => {
+    g.add(makeArrow(new THREE.Vector3(), dir.clone().multiplyScalar(s), color, 0.018));
+    g.add(solidLine(new THREE.Vector3(), neg.clone().multiplyScalar(s*0.35), color, 0.25));
+  });
+  return g;
+}
+
+function buildGrid(s) {
+  // Grid on the XY plane (user) = Three.js XZ plane with Y=0 rotated
+  // User XY plane: points (ux,uy,0) → Three.js (uy, 0, -ux)
+  const g = new THREE.Group();
+  const mat = new THREE.LineBasicMaterial({ color: C.grid, opacity: 0.55, transparent: true });
+  for (let i = -s; i <= s; i++) {
+    // lines along user-X at fixed user-Y=i: from (−s,i,0) to (s,i,0)
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([toThree(-s,i,0), toThree(s,i,0)]), mat));
+    // lines along user-Y at fixed user-X=i: from (i,−s,0) to (i,s,0)
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([toThree(i,-s,0), toThree(i,s,0)]), mat));
+  }
+  return g;
+}
+
+scene.add(buildAxes(AXIS_SIZE));
+scene.add(buildGrid(6));
+
+let dynGroup = new THREE.Group();
+scene.add(dynGroup);
+
+// ==================== DOT AT POINT ====================
+function makeDot(pos, color = 0x111111, radius = 0.055) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 14, 14),
+    new THREE.MeshPhongMaterial({ color, shininess: 60 })
+  );
+  mesh.position.copy(pos);
+  return mesh;
+}
+
+// ==================== FORMULA ====================
+function fmt(n) { return Number(n.toFixed(2)).toString(); }
+
+function updateFormula(u, v, w) {
+  const map = {
+    'f-ux': u.x, 'f-uy': u.y, 'f-uz': u.z,
+    'f-vx': v.x, 'f-vy': v.y, 'f-vz': v.z,
+    'f-wx': w.x, 'f-wy': w.y, 'f-wz': w.z,
+  };
+  for (const [id, val] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    el.textContent = fmt(val);
+    el.dir = 'ltr';
+    el.style.unicodeBidi = 'embed';
+  }
+  // v algebraic display inside vector v card
+  const va = document.getElementById('v-algebraic');
+  if (va) {
+    va.textContent = `v = (${fmt(v.x)} , ${fmt(v.y)} , ${fmt(v.z)})`;
+    va.dir = 'ltr';
+  }
+}
+
+// ==================== LABEL POSITIONS ====================
+let labelPos = { u: new THREE.Vector3(), v: new THREE.Vector3(), w: new THREE.Vector3() };
+// axis tip positions (static)
+const axisLabelPos = {
+  x: toThree(AXIS_SIZE + 0.45, 0, 0),
+  y: toThree(0, AXIS_SIZE + 0.45, 0),
+  z: toThree(0, 0, AXIS_SIZE + 0.45),
+};
+// endpoint label positions (dynamic)
+let ptLabelPos = { u: new THREE.Vector3(), v: new THREE.Vector3(), w: new THREE.Vector3() };
+
+// ==================== UPDATE SCENE ====================
+function getVals() {
+  const n = id => parseFloat(document.getElementById(id).value) || 0;
+  return {
+    u: new THREE.Vector3(n('ux'), n('uy'), n('uz')),
+    v: new THREE.Vector3(n('vx'), n('vy'), n('vz')),
+  };
+}
+
+function updateScene() {
+  const { u, v } = getVals();
+  const w = u.clone().add(v);
+  updateFormula(u, v, w);
+
+  scene.remove(dynGroup);
+  dynGroup = new THREE.Group();
+  const O = new THREE.Vector3();
+
+  // Convert user coords → Three.js coords
+  const u3 = userVecToThree(u);
+  const v3 = userVecToThree(v);
+  const w3 = userVecToThree(w);
+
+  // u: origin → tip
+  if (u.length() > 0.001) {
+    dynGroup.add(makeArrow(O, u3, C.u, 0.033));
+    dynGroup.add(makeDot(u3));
+  }
+
+  // v: tip of u → w (triangle method)
+  if (v.length() > 0.001) {
+    dynGroup.add(makeArrow(u3, w3, C.v, 0.033));
+  }
+
+  // w: origin → w
+  if (w.length() > 0.001) {
+    dynGroup.add(makeArrow(O, w3, C.w, 0.038));
+  }
+  dynGroup.add(makeDot(w3));
+
+  scene.add(dynGroup);
+
+  // Label positions in Three.js space
+  const off = 0.38;
+  labelPos.u = u.length() > 0.01 ? u3.clone().multiplyScalar(0.5).add(u3.clone().normalize().multiplyScalar(off)) : new THREE.Vector3(0.5,0.5,0);
+  labelPos.v = v.length() > 0.01 ? u3.clone().add(w3).multiplyScalar(0.5).add(v3.clone().normalize().multiplyScalar(off)) : u3.clone();
+  labelPos.w = w.length() > 0.01 ? w3.clone().multiplyScalar(0.5).add(w3.clone().normalize().multiplyScalar(off)) : new THREE.Vector3(0,0.5,0);
+
+  // v algebraic label: midpoint of v arrow, perpendicular offset
+  if (v.length() > 0.01) {
+    const vMid = u3.clone().add(w3).multiplyScalar(0.5);
+    const vDir = v3.clone().normalize();
+    const perp = new THREE.Vector3(0, 1, 0).cross(vDir);
+    if (perp.length() < 0.01) perp.set(1, 0, 0);
+    perp.normalize().multiplyScalar(0.6);
+    vAlgPos = vMid.clone().add(perp);
+  }
+
+  // Endpoint positions in Three.js space
+  ptLabelPos.u = u3.clone();
+  ptLabelPos.v = w3.clone();
+  ptLabelPos.w = w3.clone();
+}
+
+// ==================== 2D LABELS ====================
+const labels = { u: document.getElementById('label-u'), v: document.getElementById('label-v'), w: document.getElementById('label-w') };
+const axisLabels = { x: document.getElementById('axis-x'), y: document.getElementById('axis-y'), z: document.getElementById('axis-z') };
+const ptLabels   = { u: document.getElementById('pt-u'),   v: document.getElementById('pt-v'),   w: document.getElementById('pt-w') };
+const vAlgLabel  = document.getElementById('v-alg-3d');
+
+// position of v algebraic label (midpoint of v arrow, offset perpendicular)
+let vAlgPos = new THREE.Vector3();
+
+function project3D(p3) {
+  const v = p3.clone().project(camera);
+  const r = container.getBoundingClientRect();
+  return { x: (v.x+1)/2*r.width, y: (-v.y+1)/2*r.height, behind: v.z > 1 };
+}
+
+function fmtPt(n) { return Number(n.toFixed(1)).toString(); }
+
+function renderLabels() {
+  // vector mid labels
+  for (const [k, pos] of Object.entries(labelPos)) {
+    const p = project3D(pos);
+    if (p.behind) { labels[k].style.display = 'none'; continue; }
+    labels[k].style.display = 'block';
+    labels[k].style.left = p.x + 'px';
+    labels[k].style.top  = p.y + 'px';
+  }
+
+  // axis tip labels
+  for (const [k, pos] of Object.entries(axisLabelPos)) {
+    const p = project3D(pos);
+    if (p.behind) { axisLabels[k].style.display = 'none'; continue; }
+    axisLabels[k].style.display = 'block';
+    axisLabels[k].style.left = p.x + 'px';
+    axisLabels[k].style.top  = p.y + 'px';
+  }
+
+  // endpoint coordinate labels
+  const { u, v } = getVals();
+  const w = u.clone().add(v);
+  const pts = {
+    u: { pos: ptLabelPos.u, vec: u,  show: u.length() > 0.01 },
+    v: { pos: ptLabelPos.v, vec: w,  show: v.length() > 0.01 },  // tip of v = w
+    w: { pos: ptLabelPos.w, vec: w,  show: w.length() > 0.01 },
+  };
+
+  // u tip: show only when v exists (otherwise w dot is same point)
+  const uPt = project3D(ptLabelPos.u);
+  if (!uPt.behind && u.length() > 0.01 && v.length() > 0.01) {
+    ptLabels.u.style.display = 'block';
+    ptLabels.u.style.left = uPt.x + 'px';
+    ptLabels.u.style.top  = uPt.y + 'px';
+    ptLabels.u.textContent = `(${fmtPt(u.x)}, ${fmtPt(u.y)}, ${fmtPt(u.z)})`;
+  } else {
+    ptLabels.u.style.display = 'none';
+  }
+
+  // v algebraic label on the 3D arrow
+  const { u: uv, v: vv } = getVals();
+  if (vv.length() > 0.01) {
+    const vAlgP = project3D(vAlgPos);
+    if (!vAlgP.behind) {
+      vAlgLabel.style.display = 'block';
+      vAlgLabel.style.left = vAlgP.x + 'px';
+      vAlgLabel.style.top  = vAlgP.y + 'px';
+      vAlgLabel.textContent = `(${fmtPt(vv.x)}, ${fmtPt(vv.y)}, ${fmtPt(vv.z)})`;
+    } else {
+      vAlgLabel.style.display = 'none';
+    }
+  } else {
+    vAlgLabel.style.display = 'none';
+  }
+
+  // w tip: always show
+  const wPt = project3D(ptLabelPos.w);
+  if (!wPt.behind && w.length() > 0.01) {
+    ptLabels.w.style.display = 'block';
+    ptLabels.w.style.left = wPt.x + 'px';
+    ptLabels.w.style.top  = wPt.y + 'px';
+    ptLabels.w.textContent = `(${fmtPt(w.x)}, ${fmtPt(w.y)}, ${fmtPt(w.z)})`;
+  } else {
+    ptLabels.w.style.display = 'none';
+  }
+}
+
+// ==================== RESIZE ====================
+function onResize() {
+  const w = container.clientWidth, h = container.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// ==================== LOOP ====================
+(function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+  renderLabels();
+})();
+
+// ==================== INPUTS ====================
+document.querySelectorAll('input[type=number]').forEach(inp => inp.addEventListener('input', updateScene));
+
+function resetValues() {
+  ['ux','uy','uz','vx','vy','vz'].forEach(id => document.getElementById(id).value = 0);
+  updateScene();
+}
+
+updateScene();
+</script>
+</body>
+</html>
